@@ -1,111 +1,73 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
-	"bytes"
-	"io/ioutil"
 	"io"
 	"os"
-	"path"
-	// "strings"
 	"unicode"
 )
 
-func verboseRemove(name string) error {
-	fmt.Printf("Removing file, %s\n", name)
-	return os.Remove(name)
-}
-
-var CR = []byte("\r")
-var CRLF = []byte("\r\n")
-var LF = []byte("\n")
-
 func main() {
-	unix := flag.Bool("unix", false, "convert to unix line-endings (\\n)")
 	dos := flag.Bool("dos", false, "convert to dos line-endings (\\r\\n)")
 	trim := flag.Bool("trim", false, "trim trailing whitespace")
 
-	clean := flag.Bool("clean", false, "remove temporary files")
-
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options] file1 file2\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "  Without any flags, %s performs no actions\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] [file]\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Without any flags, convert to unix line-endings (\\n)\n")
+		fmt.Fprintf(os.Stderr, "Without specifying file, reads from /dev/stdin\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
 
-	if *unix && *dos {
-		fmt.Fprintln(os.Stderr, "you cannot use -unix and -dos at the same time")
+	names := flag.Args()
+	if len(names) > 1 {
+		fmt.Fprintln(os.Stderr, "You must not supply more than one positional argument")
 		os.Exit(64)
 	}
 
-	names := flag.Args()
-	fmt.Printf("Processing %d file(s)\n", len(names))
+	var input io.Reader
+	if len(names) == 1 {
+		// read from file
+		var err error
+		input, err = os.Open(names[0])
+		// this input is an os.File, which implements io.Reader
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		// read from /dev/stdin
+		stat, _ := os.Stdin.Stat()
+		if (stat.Mode() & os.ModeCharDevice) != 0 {
+			fmt.Fprintln(os.Stderr, "/dev/stdin must be piped in")
+			os.Exit(66)
+		}
+		input = os.Stdin
+	}
 
-	tmp_dir := os.TempDir()
+	line_ending := []byte("\n")
+	if *dos {
+		line_ending = []byte("\r\n")
+	}
 
-	var open_perms os.FileMode // = 0
-
-	for _, name := range names {
-		file, err := os.OpenFile(name, os.O_RDWR, open_perms)
-		if err != nil {
-			panic(err)
-		}
-		// first, copy the file contents to a temporary file
-		// tmp_name := path.Join(tmp_dir, path.Base(name))
-		tmp_file, err := ioutil.TempFile(tmp_dir, path.Base(name))
-		if err != nil {
-			panic(err)
-		}
-		if *clean {
-			defer verboseRemove(tmp_file.Name())
-		}
-		// we can't use os.Link since we need to keep the shell of the old file for its metadata (tags, etc.)
-		_, err = io.Copy(tmp_file, file)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Printf("Backed up %s to %s\n", name, tmp_file.Name())
-		// rewind the temporary file we just wrote to the beginning
-		_, err = tmp_file.Seek(0, io.SeekStart)
-		if err != nil {
-			panic(err)
-		}
-		// TODO: implement this streamingly
-		// contents is a []byte
-		contents, err := ioutil.ReadAll(tmp_file)
-		if err != nil {
-			panic(err)
-		}
-		// fix line-endings
-		if *unix {
-			contents = bytes.Replace(contents, CRLF, LF, -1) // \r\n -> \n
-			contents = bytes.Replace(contents, CR, LF, -1) // \r -> \n
-		}
-		if *dos {
-			// so perverse :(
-			contents = bytes.Replace(contents, LF, CRLF, -1) // \n -> \r\n
-			// TODO: do not modify pre-existing CRLF line-endings
-		}
-		// trim whitespace
+	scanner := bufio.NewScanner(input)
+	for scanner.Scan() {
+		line := scanner.Bytes()
 		if *trim {
-			// TODO: handle CRLF somehow?
-			lines := bytes.Split(contents, LF)
-			for i := range lines {
-				lines[i] = bytes.TrimRightFunc(lines[i], unicode.IsSpace)
-			}
-			contents = bytes.Join(lines, LF)
+			// trim line in-place (this is effectively half of bytes.TrimSpace)
+			line = bytes.TrimRightFunc(line, unicode.IsSpace)
 		}
-		// write (potentially) changed contents
-		// TODO: skip writing if contents has not changed
-		// _, err := file.Seek(0, io.SeekStart)
-		// original_file, err := os.Create(name)
-		// original_file.Write(contents)
-		err = ioutil.WriteFile(name, contents, open_perms)
+		// output line content
+		_, err := os.Stdout.Write(line)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("Wrote changes (?) to %s\n", name)
+		// output line ending
+		_, err2 := os.Stdout.Write(line_ending)
+		if err2 != nil {
+			panic(err2)
+		}
 	}
 }
