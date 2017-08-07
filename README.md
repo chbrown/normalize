@@ -14,5 +14,5 @@
 
 To install locally:
 
-    export GOBIN=$GOPATH/bin
+    export GOBIN=${GOPATH-~/go}/bin
     go install
