@@ -10,6 +10,38 @@ import (
 	"unicode"
 )
 
+func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	// like bufio.ScanLines but with non-mandatory "\n"
+	// i.e., a line break can be \r, \r\n, or just \n
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexAny(data, "\n\r"); i >= 0 {
+		if data[i] == '\r' {
+			// if the current buffer happens to end with \r, and there might be more data...
+			if len(data) - 1 == i {
+				// for instance, when we're not at EOF, and that data could start with \n
+				// (which should not be treated as a separate newline)
+				if !atEOF {
+					// insist on seeing more data first
+					return 0, nil, nil
+				}
+			} else if data[i + 1] == '\n' {
+				// we're not at the end, and there is a newline following
+				return i + 2, data[0:i], nil
+			}
+		}
+		// unless we've bailed out by now, we've got the basic case:
+		// either a \n, or a \r followed by something that is not a \n
+		// where that something could be EOF
+		return i + 1, data[0:i], nil
+	}
+	if atEOF {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
+}
+
 func main() {
 	dos := flag.Bool("dos", false, "convert to dos line-endings (\\r\\n)")
 	trim := flag.Bool("trim", false, "trim trailing whitespace")
@@ -53,6 +85,7 @@ func main() {
 	}
 
 	scanner := bufio.NewScanner(input)
+	scanner.Split(scanLines)
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if *trim {
