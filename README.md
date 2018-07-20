@@ -16,3 +16,9 @@ To install locally:
 
     export GOBIN=${GOPATH-~/go}/bin
     go install
+
+
+## License
+
+Copyright 2017–2018 Christopher Brown.
+[MIT Licensed](https://chbrown.github.io/licenses/MIT/#2017-2018).
