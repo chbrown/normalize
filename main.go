@@ -79,9 +79,9 @@ func main() {
 		input = os.Stdin
 	}
 
-	line_ending := []byte("\n")
+	lineEnding := []byte("\n")
 	if *dos {
-		line_ending = []byte("\r\n")
+		lineEnding = []byte("\r\n")
 	}
 
 	scanner := bufio.NewScanner(input)
@@ -98,7 +98,7 @@ func main() {
 			panic(err)
 		}
 		// output line ending
-		_, err2 := os.Stdout.Write(line_ending)
+		_, err2 := os.Stdout.Write(lineEnding)
 		if err2 != nil {
 			panic(err2)
 		}
