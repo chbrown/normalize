@@ -49,8 +49,9 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] [file]\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Without any flags, convert to unix line-endings (\\n)\n")
-		fmt.Fprintf(os.Stderr, "Without specifying file, reads from /dev/stdin\n\n")
+		fmt.Fprintf(os.Stderr, "Without specifying file, reads from /dev/stdin\n")
 		fmt.Fprintf(os.Stderr, "Output ends with a newline iff the input is not empty\n")
+		fmt.Fprintf(os.Stderr, "\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
