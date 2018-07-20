@@ -19,14 +19,14 @@ func scanLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if i := bytes.IndexAny(data, "\n\r"); i >= 0 {
 		if data[i] == '\r' {
 			// if the current buffer happens to end with \r, and there might be more data...
-			if len(data) - 1 == i {
+			if len(data)-1 == i {
 				// for instance, when we're not at EOF, and that data could start with \n
 				// (which should not be treated as a separate newline)
 				if !atEOF {
 					// insist on seeing more data first
 					return 0, nil, nil
 				}
-			} else if data[i + 1] == '\n' {
+			} else if data[i+1] == '\n' {
 				// we're not at the end, and there is a newline following
 				return i + 2, data[0:i], nil
 			}
